@@ -1,0 +1,80 @@
+---
+const steps = [
+  {
+    n: "01",
+    t: "Выберите сферу",
+    d: "Ассистент сразу понимает, как в ней принято говорить: что спросить у клиента, от чего зависит цена, чего нельзя обещать.",
+  },
+  {
+    n: "02",
+    t: "Подтянем данные из CRM",
+    d: "Услуги, цены, сотрудники и часы работы — из системы записи, которой вы уже пользуетесь. Нет CRM — заполните в простом мастере.",
+  },
+  {
+    n: "03",
+    t: "Подключите мессенджер",
+    d: "Тот, где вам пишут клиенты: вставляете данные бота в кабинет — остальное настроим мы. Сейчас Telegram, WhatsApp — на подходе. Ответы можно проверить в тест-чате до запуска.",
+  },
+];
+---
+
+<section class="section steps" id="how">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">Запуск без программиста</span>
+      <h2 class="display">Три шага <span class="grad">до первой записи</span></h2>
+    </div>
+    <ol class="list">
+      {
+        steps.map((s, i) => (
+          <li class="step card reveal" style={`--d:${i * 0.1}s`}>
+            <span class="n display">{s.n}</span>
+            <h3>{s.t}</h3>
+            <p>{s.d}</p>
+          </li>
+        ))
+      }
+    </ol>
+  </div>
+</section>
+
+<style>
+  .list {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: s;
+  }
+  .step {
+    padding: 30px 28px 32px;
+    min-height: 280px;
+  }
+  .n {
+    display: block;
+    font-size: 72px;
+    line-height: 1;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.02));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    margin-bottom: 36px;
+  }
+  h3 {
+    margin: 0 0 10px;
+    font-size: 21px;
+    font-weight: 600;
+  }
+  p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 15.5px;
+  }
+  @media (max-width: 900px) {
+    .list { grid-template-columns: 1fr; }
+    .step { min-height: 0; }
+    .n { margin-bottom: 18px; font-size: 54px; }
+  }
+</style>

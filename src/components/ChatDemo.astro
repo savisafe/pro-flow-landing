@@ -1,0 +1,1136 @@
+---
+// Interactive demo of the assistant with a "how it thinks" trace under every reply.
+// For now it runs a local scripted engine with fictional salon data; the next step
+// is a rate-limited public demo endpoint on the kernel that returns the same trace.
+---
+
+<div class="chat-wrap" data-chat>
+  <div class="chat card">
+    <div class="top">
+      <div class="who">
+        <span class="ava" aria-hidden="true"><span></span></span>
+        <div>
+          <div class="name" data-name>Салон «Люмен»</div>
+          <div class="status"><i></i><span data-status>ассистент pro-flow · онлайн</span></div>
+        </div>
+      </div>
+      <label class="think-toggle">
+        <input type="checkbox" checked data-think />
+        <span class="sw" aria-hidden="true"></span>
+        <span class="lbl">Мысли</span>
+      </label>
+    </div>
+
+    <div class="tabs" role="tablist" aria-label="Режим демо">
+      <button role="tab" aria-selected="true" data-mode="client">Я клиент салона</button>
+      <button role="tab" aria-selected="false" data-mode="product">Спросить про pro-flow</button>
+    </div>
+
+    <div class="log" data-log aria-live="polite"></div>
+
+    <div class="chips" data-chips></div>
+
+    <form class="input" data-form>
+      <input data-input type="text" placeholder="Напишите как клиент…" autocomplete="off" maxlength="200" aria-label="Сообщение ассистенту" />
+      <button type="submit" aria-label="Отправить">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+      </button>
+    </form>
+  </div>
+
+  <div class="owner" data-owner hidden>
+    <div class="o-head">
+      <span class="tg" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M9.8 15.6 9.6 19c.4 0 .6-.2.8-.4l2-1.9 4.1 3c.8.4 1.3.2 1.5-.7L21 5.6c.3-1.1-.4-1.6-1.2-1.3L3.6 10.5c-1.1.4-1.1 1-.2 1.3l4.2 1.3 9.7-6.1c.5-.3.9-.1.5.2"></path></svg>
+      </span>
+      <b>Telegram владельца</b><span class="o-time">сейчас</span>
+    </div>
+    <p class="o-text" data-owner-text></p>
+    <div class="o-actions" data-owner-actions></div>
+  </div>
+
+  <p class="foot">Демо-сценарий: салон и его данные вымышленные.</p>
+</div>
+
+<script>
+  type Route = "template" | "scenario" | "knowledge" | "llm" | "owner" | "pii";
+  type Trace = { route: Route; label: string } | { k: string; v: string };
+  type Reply = {
+    trace: Trace[];
+    text: string;
+    chips?: string[];
+    owner?: { text: string; answers: { label: string; reply: Reply }[] };
+  };
+  type Mode = "client" | "product";
+
+  const ROUTE_LABEL: Record<Route, string> = {
+    template: "Шаблон",
+    scenario: "Сценарий",
+    knowledge: "База знаний",
+    llm: "Нейросеть",
+    owner: "Владелец",
+    pii: "PII-шлюз",
+  };
+  const r = (route: Route, label = ROUTE_LABEL[route]): Trace => ({ route, label });
+  const kv = (k: string, v: string): Trace => ({ k, v });
+  const ms = () => kv("время", `${Math.round(25 + Math.random() * 60)} мс`);
+
+  // ---------- fictional salon ----------
+  const SERVICES: Record<string, { name: string; price: string }> = {
+    haircut: { name: "Стрижка женская", price: "8 000 ₸" },
+    manicure: { name: "Маникюр с покрытием", price: "6 000 ₸" },
+    color: { name: "Окрашивание", price: "от 25 000 ₸" },
+  };
+  type Slot = { t: string; m: string; at: string }; // at — "у Дины" (genitive)
+  const DAYS: Record<string, { label: string; slots: Slot[] }> = {
+    tomorrow: { label: "завтра", slots: [{ t: "18:00", m: "Айгерім", at: "Айгерім" }, { t: "19:30", m: "Дина", at: "Дины" }] },
+    saturday: { label: "в субботу", slots: [{ t: "10:00", m: "Айгерім", at: "Айгерім" }, { t: "11:30", m: "Дина", at: "Дины" }] },
+  };
+  const LOAD: Record<string, string> = { Айгерім: "6 ч", Дина: "3,5 ч" };
+
+  type Booking = {
+    service?: string;
+    day?: string;
+    slot?: Slot;
+    awaiting?: "service" | "slot" | "contact";
+    done?: boolean;
+    known?: boolean; // contact already given in this chat
+    name?: string;
+    moving?: Slot; // the slot being rescheduled
+  };
+  let b: Booking = {};
+
+  const serviceOf = (s: string) =>
+    /стрижк|подстри/.test(s) ? "haircut" : /маник|ногт/.test(s) ? "manicure" : /окраш|цвет|покрас/.test(s) ? "color" : undefined;
+  const dayOf = (s: string) => (/суббот/.test(s) ? "saturday" : /завтр|вечер|сегодн/.test(s) ? "tomorrow" : undefined);
+
+  const YES = /^(да|ага|давайте|конечно|ок|хорошо)([\s,.!]|$)/;
+  const PHONE = /\+?\d[\d\s()-]{6,}\d/;
+
+  // Final step of booking or moving: write to the CRM journal and confirm.
+  function confirm(slot: Slot, day: string, service: string, trace: Trace[], name?: string, moved = false): Reply {
+    b = { done: true, known: true, service, day, slot, name };
+    return {
+      trace: [...trace, kv("владельцу", "уведомление в Telegram"), ms()],
+      text: `Готово${name ? `, ${name}` : ""}! ${moved ? "Перенесла запись" : "Записала вас"}: ${SERVICES[service].name.toLowerCase()}, ${DAYS[day].label} в ${slot.t}, мастер ${slot.m}. Если планы изменятся — напишите сюда, перенесу или отменю.`,
+      chips: ["Перенесите, пожалуйста", "Отмените запись", "Можно скидку на день рождения?"],
+    };
+  }
+
+  function nextBookingStep(extra: Trace[] = []): Reply {
+    if (!b.service) {
+      b.awaiting = "service";
+      return {
+        trace: [r("scenario"), kv("сценарий", "запись · шаг 1/4 — услуга"), ...extra, kv("нейросеть", "не вызывалась"), ms()],
+        text: "С удовольствием запишу! На какую услугу?",
+        chips: ["Стрижка женская", "Маникюр", "Окрашивание"],
+      };
+    }
+    if (!b.slot) {
+      b.day ??= "tomorrow";
+      const d = DAYS[b.day];
+      b.awaiting = "slot";
+      return {
+        trace: [
+          r("scenario"),
+          kv("сценарий", b.moving ? "перенос · выбор времени" : "запись · шаг 2/4 — время"),
+          kv("услуга", SERVICES[b.service].name),
+          ...extra,
+          kv("журнал CRM", `свободно ${d.label}: ${d.slots.map((s) => s.t).join(", ")}`),
+          ms(),
+        ],
+        text: `${cap(d.label)} свободно: ${d.slots.map((s) => `${s.t} у ${s.at}`).join(" и ")}. Какое время удобно?`,
+        chips: [...d.slots.map((s) => `${s.t} у ${s.at}`), "Всё равно к кому"],
+      };
+    }
+    const slot = b.slot;
+    const day = b.day!;
+    if (b.moving) {
+      const from = b.moving;
+      return confirm(slot, day, b.service, [
+        r("scenario"),
+        kv("сценарий", "перенос · подтверждено"),
+        ...extra,
+        kv("журнал CRM", `${from.t} → ${DAYS[day].label} ${slot.t} · ${slot.m}`),
+        kv("контакт", "уже известен — не переспрашиваем"),
+      ], b.name, true);
+    }
+    if (b.known) {
+      return confirm(slot, day, b.service, [
+        r("scenario"),
+        kv("сценарий", "запись · подтверждено"),
+        ...extra,
+        kv("контакт", "уже известен — не переспрашиваем"),
+        kv("журнал CRM", `создана запись · ${slot.m} · ${slot.t}`),
+      ], b.name);
+    }
+    b.awaiting = "contact";
+    return {
+      trace: [r("scenario"), kv("сценарий", "запись · шаг 3/4 — контакт"), ...extra, kv("слот", `${slot.t} · ${slot.m}`), ms()],
+      text: `Отлично, ${DAYS[day].label} в ${slot.t} у ${slot.at}. Как к вам обращаться? Имя и телефон, пожалуйста.`,
+      chips: ["Айгерім, +7 701 234 56 78"],
+    };
+  }
+
+  const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+  const birthday: Reply = {
+    trace: [r("owner", "Ответ владельца"), kv("ответ", "«да, 10% в др»"), r("llm"), kv("задача", "переписать в тоне ассистента"), kv("нейросеть видит", "без личных данных"), ms()],
+    text: "Хорошие новости: в день рождения у нас скидка 10% на все услуги. Покажите документ на ресепшене — мастер учтёт.",
+    chips: ["Есть время завтра вечером?", "Сколько стоит стрижка?"],
+  };
+  const birthdayNo: Reply = {
+    trace: [r("owner", "Ответ владельца"), kv("ответ", "«скидки нет, будет подарок»"), r("llm"), kv("задача", "переписать в тоне ассистента"), ms()],
+    text: "Скидки на день рождения у нас нет, но в этот день мастер приготовит для вас небольшой подарок.",
+    chips: ["Есть время завтра вечером?", "Сколько стоит стрижка?"],
+  };
+
+  const noBooking: Reply = {
+    trace: [r("scenario"), kv("журнал CRM", "активных записей у клиента нет"), ms()],
+    text: "У вас пока нет записи. Хотите записаться?",
+    chips: ["Да, на завтра вечером", "Сколько стоит стрижка?"],
+  };
+
+  function clientReply(raw: string): Reply {
+    const s = raw.toLowerCase().trim();
+
+    // Contact step: a phone number is required, the name is optional.
+    if (b.awaiting === "contact" && PHONE.test(raw)) {
+      const first = raw.trim().split(/[\s,]+/)[0];
+      const name = /^[A-ZА-ЯЁӘҒҚҢӨҰҮҺІ][^\d]*$/.test(first) ? first : undefined;
+      return confirm(b.slot!, b.day!, b.service!, [
+        r("pii"),
+        kv("найдено", name ? "имя · телефон" : "телефон"),
+        kv("нейросеть видит", name ? "«[ИМЯ], [ТЕЛЕФОН]»" : "«[ТЕЛЕФОН]»"),
+        r("scenario"),
+        kv("сценарий", "запись · шаг 4/4 — подтверждено"),
+        kv("журнал CRM", `создана запись · ${b.slot!.m} · ${b.slot!.t}`),
+      ], name);
+    }
+
+    if (/скидк|акци|день рожд|дешевле|промокод/.test(s)) {
+      return {
+        trace: [
+          r("knowledge"),
+          kv("поиск", "«скидка», «день рождения»"),
+          kv("в данных", "ничего не найдено"),
+          kv("правило", "скидки обещает только владелец"),
+          r("owner", "Эскалация"),
+          kv("действие", "выжимка → Telegram владельца"),
+          ms(),
+        ],
+        text: "Хороший вопрос — уточню у администратора и вернусь с ответом прямо здесь, буквально пару минут.",
+        owner: {
+          text: "Клиент спрашивает: «Можно скидку на день рождения?» В прайсе скидок нет. Что ответить?",
+          answers: [
+            { label: "Да, 10% в день рождения", reply: birthday },
+            { label: "Нет, но будет подарок", reply: birthdayNo },
+          ],
+        },
+      };
+    }
+
+    if (/отмен/.test(s)) {
+      if (!b.done || !b.slot) return noBooking;
+      const old = b.slot;
+      const day = DAYS[b.day!].label;
+      b = { known: true, name: b.name };
+      return {
+        trace: [r("scenario"), kv("сценарий", "отмена записи"), kv("журнал CRM", `запись ${old.t} · ${old.m} отменена`), kv("владельцу", "уведомление об отмене"), ms()],
+        text: `Отменила вашу запись ${day} в ${old.t}. Захотите прийти в другое время — напишите, подберу.`,
+        chips: ["Запишите на субботу", "Сколько стоит стрижка?"],
+      };
+    }
+
+    if (/перен|не смогу|не успева|другое время/.test(s)) {
+      if (!b.done || !b.slot) return noBooking;
+      b = { service: b.service, day: "saturday", moving: b.slot, known: true, name: b.name };
+      return nextBookingStep([kv("текущая", `${b.moving!.t} · ${b.moving!.m}`)]);
+    }
+
+    if (/всё равно|все равно|любой|любому|без разницы/.test(s) && b.service && !b.slot) {
+      b.day ??= "tomorrow";
+      const slots = DAYS[b.day].slots;
+      const pick = slots.reduce((a, c) => (parseFloat(LOAD[c.m].replace(",", ".")) < parseFloat(LOAD[a.m].replace(",", ".")) ? c : a));
+      b.slot = pick;
+      return nextBookingStep([r("scenario", "Распределение"), kv("загрузка", slots.map((x) => `${x.m} ${LOAD[x.m]}`).join(" · ")), kv("выбор", `${pick.m} — свободнее`)]);
+    }
+
+    if (b.awaiting === "slot" && b.day) {
+      const slot = DAYS[b.day].slots.find((x) => s.includes(x.t) || s.includes(x.t.slice(0, 2)) || s.includes(x.m.toLowerCase().slice(0, 3)));
+      if (slot) {
+        b.slot = slot;
+        return nextBookingStep();
+      }
+    }
+
+    const svc = serviceOf(s);
+    const day = dayOf(s);
+    const wantsBooking = /запис|время|свобод|окошк|окно|есть ли/.test(s) || !!day;
+    const yes = YES.test(s);
+
+    // A finished booking never leaks its slot into the next one.
+    if (b.done && (wantsBooking || yes || /голосов/.test(s))) b = { known: true, name: b.name };
+
+    if (/голосов/.test(s)) {
+      b.day = "saturday";
+      b.service ??= "haircut";
+      b.slot = undefined;
+      return nextBookingStep([r("pii", "Распознавание речи"), kv("где", "свои серверы, наружу не уходит"), kv("текст", "«есть время в субботу утром на стрижку?»")]);
+    }
+
+    if (svc && (wantsBooking || b.awaiting === "service")) {
+      b.service = svc;
+      if (day) b.day = day;
+      return nextBookingStep();
+    }
+
+    if (/сколько|цен|стоит|прайс|стоимост/.test(s)) {
+      const one = svc ? SERVICES[svc] : SERVICES.haircut;
+      if (svc && !b.slot) b.service = svc;
+      return {
+        trace: [r("template"), kv("намерение", "цена услуги · 0.97"), kv("прайс", `${one.name} — ${one.price}`), kv("нейросеть", "не вызывалась · 0 токенов"), ms()],
+        text: svc
+          ? `${one.name} — ${one.price}. Записать вас?`
+          : "Стрижка женская — 8 000 ₸, мужская — 5 000 ₸, с укладкой — 11 000 ₸. Записать вас?",
+        chips: b.awaiting === "contact" ? ["Айгерім, +7 701 234 56 78"] : ["Да, на завтра вечером", "Можно скидку на день рождения?"],
+      };
+    }
+
+    if (wantsBooking || yes) {
+      if (day && !b.slot) b.day = day;
+      if (svc) b.service = svc;
+      if (!b.service && yes) b.service = "haircut";
+      return nextBookingStep();
+    }
+
+    if (svc) {
+      b.service = svc;
+      return nextBookingStep();
+    }
+
+    if (/работа|график|воскрес|часы|адрес|где вы|открыт/.test(s)) {
+      return {
+        trace: [r("template"), kv("намерение", "часы и адрес · 0.95"), kv("карточка бизнеса", "10:00–21:00 ежедневно"), kv("нейросеть", "не вызывалась"), ms()],
+        text: "Работаем каждый день с 10:00 до 21:00, в воскресенье тоже. Мы на проспекте Абая, 150.",
+        chips: ["Есть время завтра вечером?", "Сколько стоит стрижка?"],
+      };
+    }
+
+    if (/привет|здравст|салам|сәлем|добрый/.test(s)) {
+      return {
+        trace: [r("template"), kv("намерение", "приветствие"), ms()],
+        text: "Здравствуйте! Подскажу цены, свободное время и запишу к мастеру. Что вас интересует?",
+        chips: ["Сколько стоит стрижка?", "Запишите на завтра вечером"],
+      };
+    }
+
+    if (b.awaiting === "contact") {
+      return {
+        trace: [r("scenario"), kv("сценарий", "запись · шаг 3/4 — контакт"), kv("в сообщении", "телефона нет"), ms()],
+        text: "Чтобы закрепить время, напишите, пожалуйста, имя и номер телефона.",
+        chips: ["Айгерім, +7 701 234 56 78"],
+      };
+    }
+
+    return {
+      trace: [r("knowledge"), kv("поиск", "совпадений нет · 0.28"), kv("решение", "не выдумывать"), r("owner", "Эскалация"), kv("действие", "вопрос → Telegram владельца"), ms()],
+      text: "Этого я точно не знаю, а выдумывать не буду. Уточню у администратора и вернусь с ответом здесь же.",
+      chips: ["Сколько стоит стрижка?", "Запишите на завтра вечером"],
+    };
+  }
+
+  // What pro-flow does not do yet — answered straight, from the knowledge base.
+  const LIMITS: [RegExp, string][] = [
+    [/звон|звонк|позвон/, "Нет, я работаю только в переписке — звонить и принимать звонки не умею."],
+    [/фото|картин|изображ|скрин/, "Фото клиентов я не распознаю — вежливо прошу описать вопрос словами. Голосовые понимаю."],
+    [/рассыл/, "Массовые рассылки я не делаю — только отвечаю клиентам, которые написали сами."],
+    [/whatsapp|ватсап|вотсап|instagram|инстаграм|max\b|макс/, "Сейчас клиенты пишут мне в Telegram. WhatsApp Business для клиентов — скоро; сложные вопросы владельцу я уже умею присылать в WhatsApp."],
+    [/yclients|altegio|альтеджио|иклаентс|crm|црм/, "Подключаем ту систему записи, которой вы пользуетесь, — назовите её, и обсудим подключение на старте. Без CRM я тоже работаю."],
+    [/оплат.*(клиент|услуг)|принима.*оплат|эквайр/, "Оплату от ваших клиентов я не принимаю — только записываю и отвечаю на вопросы."],
+  ];
+
+  function productReply(raw: string): Reply | "switch" {
+    const s = raw.toLowerCase();
+    if (/покажи|запиши|запишите|записать меня|как ты записываешь/.test(s)) return "switch";
+    const limit = LIMITS.find(([re]) => re.test(s));
+    if (limit)
+      return {
+        trace: [r("knowledge"), kv("статья", "«Чего pro-flow пока не делает»"), kv("правило", "не обещать лишнего"), ms()],
+        text: limit[1],
+        chips: ["Что ты умеешь?", "Сколько стоит?"],
+      };
+    if (/стоит|цен|тариф|оплат|дорог|сколько/.test(s))
+      return {
+        trace: [r("template"), kv("намерение", "цена · 0.98"), kv("источник", "тарифы pro-flow"), kv("нейросеть", "не вызывалась"), ms()],
+        text: "25 000 ₸ в месяц — меньше 850 ₸ в день, все функции сразу. Первые 7 дней бесплатно, до 500 ответов клиентам. Отменить можно в любой момент.",
+        chips: ["Как начать?", "А ты не наврёшь клиенту?"],
+      };
+    if (/навр|выдум|точн|chatgpt|gpt|ошиб|врёт|врет/.test(s))
+      return {
+        trace: [r("knowledge"), kv("статья", "«Почему не выдумывает цены»"), r("llm"), kv("задача", "ответить коротко по статье"), ms()],
+        text: "Цены, адреса и запись я беру из ваших данных, а не из нейросети. Нейросеть нужна только для живого разговора и опирается на те же факты. Чего нет в данных — не обещаю, а спрашиваю у владельца.",
+        chips: ["Куда уходят данные клиентов?", "Покажи запись"],
+      };
+    if (/казах|қазақ|язык|англ|english/.test(s))
+      return {
+        trace: [r("template"), kv("намерение", "языки"), kv("настройка", "язык ассистента"), ms()],
+        text: "Иә, қазақша да сөйлеймін! Я мультиязычный: язык общения выбирается в настройках ассистента.",
+        chips: ["Что ты умеешь?", "Сколько стоит?"],
+      };
+    if (/данн|персон|безопас|закон|приват|телефон/.test(s))
+      return {
+        trace: [r("knowledge"), kv("статья", "«Персональные данные»"), r("llm"), kv("задача", "ответить коротко по статье"), ms()],
+        text: "Сначала спрашиваю у клиента согласие. Имена, телефоны и email заменяются метками ещё до нейросети — она их не видит. Голосовые распознаются на наших серверах. Работаем по закону РК «О персональных данных».",
+        chips: ["Покажи запись", "Сколько стоит?"],
+      };
+    if (/начать|подключ|попроб|старт|настро|программист/.test(s))
+      return {
+        trace: [r("knowledge"), kv("статья", "«Как начать»"), kv("нейросеть", "не вызывалась"), ms()],
+        text: "Три шага: регистрируетесь в кабинете, выбираете сферу — услуги и цены подтянем из вашей CRM, — и подключаете мессенджер. Программист не нужен, настроим вместе.",
+        chips: ["Покажи запись", "Сколько стоит?"],
+      };
+    if (/уме|функц|можешь|что ты|возможн|зачем/.test(s))
+      return {
+        trace: [r("knowledge"), kv("статья", "«Что умеет ассистент»"), r("llm"), kv("задача", "сжать до 3 предложений"), ms()],
+        text: "Отвечаю клиентам 24/7, называю цены из вашего прайса и сам записываю в CRM: подбираю время, переношу, отменяю. Понимаю голосовые. Сложный вопрос передаю владельцу и пересылаю клиенту ответ.",
+        chips: ["Покажи запись", "Сколько стоит?"],
+      };
+    if (/привет|здравст|салам|сәлем/.test(s))
+      return {
+        trace: [r("template"), kv("намерение", "приветствие"), ms()],
+        text: "Привет! Спросите что угодно о pro-flow — или нажмите «Покажи запись», и я сыграю администратора салона.",
+        chips: ["Что ты умеешь?", "Покажи запись"],
+      };
+    return {
+      trace: [r("knowledge"), kv("поиск", "совпадений нет · 0.31"), kv("решение", "не выдумывать"), r("owner", "Эскалация"), kv("действие", "вопрос → команде pro-flow"), ms()],
+      text: "Точного ответа в моей базе нет — выдумывать не буду. Передам вопрос команде и вернусь с ответом. А пока могу показать, как записываю клиентов.",
+      chips: ["Покажи запись", "Что ты умеешь?"],
+    };
+  }
+
+  const GREETING: Record<Mode, Reply> = {
+    client: {
+      trace: [],
+      text: "Здравствуйте! Это салон «Люмен». Подскажу цены, свободное время и запишу к мастеру. Чем помочь?",
+      chips: ["Есть время завтра вечером?", "Сколько стоит стрижка?", "Голосовое сообщение", "Можно скидку на день рождения?"],
+    },
+    product: {
+      trace: [],
+      text: "Привет! Я ассистент pro-flow — и сам работаю на этом продукте. Как я отвечаю вам, так буду отвечать вашим клиентам. Спрашивайте.",
+      chips: ["Что ты умеешь?", "Сколько стоит?", "А ты не наврёшь клиенту?", "Говоришь по-казахски?"],
+    },
+  };
+
+  // ---------- rendering ----------
+  const root = document.querySelector<HTMLElement>("[data-chat]")!;
+  const log = root.querySelector<HTMLElement>("[data-log]")!;
+  const chipsEl = root.querySelector<HTMLElement>("[data-chips]")!;
+  const form = root.querySelector<HTMLFormElement>("[data-form]")!;
+  const input = root.querySelector<HTMLInputElement>("[data-input]")!;
+  const think = root.querySelector<HTMLInputElement>("[data-think]")!;
+  const nameEl = root.querySelector<HTMLElement>("[data-name]")!;
+  const statusEl = root.querySelector<HTMLElement>("[data-status]")!;
+  const owner = root.querySelector<HTMLElement>("[data-owner]")!;
+  const ownerText = root.querySelector<HTMLElement>("[data-owner-text]")!;
+  const ownerActions = root.querySelector<HTMLElement>("[data-owner-actions]")!;
+  const tabs = [...root.querySelectorAll<HTMLButtonElement>("[data-mode]")];
+
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const wait = (t: number) => new Promise((res) => setTimeout(res, reduce ? 0 : t));
+  let mode: Mode = "client";
+  let busy = false;
+  let touched = false;
+  let epoch = 0; // bumps on mode switch to cancel in-flight animations
+
+  const el = (tag: string, cls?: string, text?: string) => {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  };
+  const scrollDown = () => log.scrollTo({ top: log.scrollHeight, behavior: reduce ? "auto" : "smooth" });
+
+  think.addEventListener("change", () => root.classList.toggle("no-think", !think.checked));
+
+  function setChips(list: string[] = []) {
+    chipsEl.replaceChildren(
+      ...list.map((c, i) => {
+        const btn = el("button", "chip", c) as HTMLButtonElement;
+        btn.type = "button";
+        btn.style.setProperty("--i", String(i));
+        btn.addEventListener("click", () => send(c));
+        return btn;
+      }),
+    );
+  }
+
+  function userBubble(text: string) {
+    const row = el("div", "msg user");
+    if (/^голосовое/i.test(text)) {
+      const v = el("div", "bubble voice");
+      v.append(el("span", "play", "▶"));
+      const wave = el("span", "wave");
+      for (let i = 0; i < 26; i++) {
+        const bar = el("i");
+        bar.style.height = `${20 + Math.abs(Math.sin(i * 1.7)) * 80}%`;
+        wave.append(bar);
+      }
+      v.append(wave, el("span", "dur", "0:04"));
+      row.append(v);
+    } else {
+      row.append(el("div", "bubble", text));
+    }
+    log.append(row);
+    scrollDown();
+  }
+
+  async function botReply(rep: Reply, my: number) {
+    const row = el("div", "msg bot");
+    log.append(row);
+
+    if (rep.trace.length) {
+      const tr = el("div", "trace");
+      const head = el("div", "trace-head");
+      head.append(el("span", "spark"), el("span", "", "думает"));
+      tr.append(head);
+      row.append(tr);
+      scrollDown();
+      for (const t of rep.trace) {
+        await wait(170 + Math.random() * 160);
+        if (my !== epoch) return;
+        if ("route" in t) {
+          const line = el("div", "t-route");
+          const chip = el("span", "route", t.label);
+          chip.dataset.r = t.route;
+          line.append(chip);
+          tr.append(line);
+        } else {
+          const line = el("div", "t-kv");
+          line.append(el("span", "k", t.k), el("span", "v", t.v));
+          tr.append(line);
+        }
+        scrollDown();
+      }
+      head.lastElementChild!.textContent = "решение";
+      tr.classList.add("done");
+    }
+
+    const typing = el("div", "bubble typing");
+    typing.append(el("i"), el("i"), el("i"));
+    row.append(typing);
+    scrollDown();
+    await wait(450 + Math.min(rep.text.length * 6, 700));
+    if (my !== epoch) return;
+
+    const bubble = el("div", "bubble");
+    typing.replaceWith(bubble);
+    const words = rep.text.split(" ");
+    for (let i = 0; i < words.length; i++) {
+      bubble.textContent = words.slice(0, i + 1).join(" ");
+      if (i % 3 === 0) scrollDown();
+      await wait(22);
+      if (my !== epoch) return;
+    }
+    scrollDown();
+
+    if (rep.owner) {
+      await wait(900);
+      if (my !== epoch) return;
+      showOwner(rep.owner, my);
+    } else {
+      setChips(rep.chips);
+    }
+  }
+
+  function showOwner(o: NonNullable<Reply["owner"]>, my: number) {
+    ownerText.textContent = o.text;
+    ownerActions.replaceChildren(
+      ...o.answers.map((a) => {
+        const btn = el("button", "o-btn", a.label) as HTMLButtonElement;
+        btn.type = "button";
+        btn.addEventListener("click", async () => {
+          hideOwner();
+          if (my !== epoch) return;
+          busy = true;
+          setChips([]);
+          await wait(500);
+          await botReply(a.reply, my);
+          if (my === epoch) busy = false;
+        });
+        return btn;
+      }),
+    );
+    owner.hidden = false;
+    root.classList.add("owner-open");
+    scrollDown();
+    requestAnimationFrame(() => owner.classList.add("show"));
+    setChips([]);
+    statusEl.textContent = "ждёт ответа владельца…";
+  }
+
+  function hideOwner() {
+    owner.classList.remove("show");
+    owner.hidden = true;
+    root.classList.remove("owner-open");
+    statusEl.textContent = "ассистент pro-flow · онлайн";
+  }
+
+  async function send(text: string) {
+    const t = text.trim();
+    if (!t || busy) return;
+    touched = true;
+    busy = true;
+    hideOwner();
+    setChips([]);
+    userBubble(t);
+    // Every await below re-checks the epoch: a tab switch must cancel this reply, and only
+    // the current generation may release `busy`.
+    const my = epoch;
+    const m = mode;
+    await wait(350);
+    if (my !== epoch) return;
+
+    if (m === "product") {
+      const rep = productReply(t);
+      if (rep === "switch") {
+        await botReply(
+          { trace: [r("template"), kv("действие", "переключить на демо-салон")], text: "Переключаю на демо-салон «Люмен» — представьте, что вы его клиент." },
+          my,
+        );
+        await wait(700);
+        if (my === epoch) setMode("client");
+        return;
+      }
+      await botReply(rep, my);
+    } else {
+      await botReply(clientReply(t), my);
+    }
+    if (my === epoch) busy = false;
+  }
+
+  function setMode(m: Mode) {
+    epoch++;
+    mode = m;
+    busy = false;
+    b = {};
+    hideOwner();
+    tabs.forEach((t) => t.setAttribute("aria-selected", String(t.dataset.mode === m)));
+    nameEl.textContent = m === "client" ? "Салон «Люмен»" : "pro-flow";
+    input.placeholder = m === "client" ? "Напишите как клиент…" : "Спросите о pro-flow…";
+    log.replaceChildren();
+    const g = GREETING[m];
+    const row = el("div", "msg bot");
+    row.append(el("div", "bubble", g.text));
+    log.append(row);
+    setChips(g.chips);
+  }
+
+  tabs.forEach((t) => t.addEventListener("click", () => setMode(t.dataset.mode as Mode)));
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const v = input.value;
+    input.value = "";
+    send(v);
+  });
+
+  setMode("client");
+
+  // Autoplay one exchange when the chat first comes into view, unless the visitor already started.
+  const auto = new IntersectionObserver(
+    (entries) => {
+      if (!entries[0].isIntersecting) return;
+      auto.disconnect();
+      setTimeout(() => {
+        if (!touched && mode === "client") send("Есть время завтра вечером?");
+      }, 1400);
+    },
+    { threshold: 0.5 },
+  );
+  auto.observe(root);
+</script>
+
+<style>
+  .chat-wrap {
+    position: relative;
+    width: 100%;
+    max-width: 520px;
+    margin-inline: auto;
+  }
+  .chat {
+    display: flex;
+    flex-direction: column;
+    border-radius: 28px;
+    background:
+      radial-gradient(500px circle at var(--mx) var(--my), rgba(139, 108, 255, 0.1), transparent 45%),
+      linear-gradient(180deg, rgba(20, 23, 50, 0.82), rgba(8, 10, 24, 0.9));
+    box-shadow:
+      0 40px 120px -30px rgba(80, 60, 255, 0.45),
+      0 0 0 1px rgba(170, 180, 255, 0.14) inset;
+  }
+
+  .top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 18px 12px;
+  }
+  .who {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  .ava {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: conic-gradient(from 0deg, var(--cyan), var(--violet), var(--lime), var(--cyan));
+    animation: spin 6s linear infinite;
+    padding: 2px;
+  }
+  .ava span {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 35%, #fff, #d6ff3d 25%, #10132c 60%);
+  }
+  .name {
+    font-weight: 600;
+    font-size: 15px;
+  }
+  .status {
+    display: flex;
+    gap: 7px;
+    align-items: center;
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+  .status i {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #3dff8b;
+    box-shadow: 0 0 8px #3dff8b;
+  }
+
+  .think-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    user-select: none;
+  }
+  .think-toggle input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .sw {
+    position: relative;
+    width: 34px;
+    height: 20px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.1);
+    transition: background 0.25s;
+  }
+  .sw::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform 0.25s var(--ease-out);
+  }
+  .think-toggle input:checked + .sw {
+    background: var(--violet);
+    box-shadow: 0 0 14px rgba(139, 108, 255, 0.7);
+  }
+  .think-toggle input:checked + .sw::after {
+    transform: translateX(14px);
+  }
+  .think-toggle input:focus-visible + .sw {
+    outline: 2px solid var(--cyan);
+    outline-offset: 2px;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin: 0 14px;
+    padding: 4px;
+    border-radius: 14px;
+    background: rgba(0, 0, 0, 0.3);
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+  .tabs button {
+    flex: 1;
+    border: 0;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: transparent;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--muted);
+    cursor: pointer;
+    transition: background 0.25s, color 0.25s;
+  }
+  .tabs button[aria-selected="true"] {
+    background: rgba(255, 255, 255, 0.09);
+    color: var(--ink);
+    box-shadow: inset 0 0 0 1px var(--line-strong);
+  }
+
+  .log {
+    height: 440px;
+    overflow-y: auto;
+    padding: 18px 16px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+    mask-image: linear-gradient(180deg, transparent 0, #000 22px);
+  }
+
+  .log :global(.msg) {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-width: 88%;
+    animation: pop 0.45s var(--ease-out) both;
+  }
+  .log :global(.msg.user) {
+    align-self: flex-end;
+    align-items: flex-end;
+  }
+  .log :global(.bubble) {
+    padding: 10px 14px;
+    border-radius: 18px;
+    font-size: 15px;
+    line-height: 1.45;
+    background: rgba(255, 255, 255, 0.07);
+    box-shadow: inset 0 0 0 1px var(--line);
+    border-bottom-left-radius: 6px;
+  }
+  .log :global(.msg.user .bubble) {
+    background: linear-gradient(135deg, #6d4dff, #8b6cff 60%, #a58bff);
+    box-shadow: 0 8px 26px -10px rgba(139, 108, 255, 0.9);
+    border-bottom-left-radius: 18px;
+    border-bottom-right-radius: 6px;
+  }
+
+  .log :global(.voice) {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 200px;
+  }
+  .log :global(.voice .play) {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.22);
+    font-size: 10px;
+  }
+  .log :global(.voice .wave) {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    height: 24px;
+    flex: 1;
+  }
+  .log :global(.voice .wave i) {
+    flex: 1;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.75);
+  }
+  .log :global(.voice .dur) {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    opacity: 0.8;
+  }
+
+  .log :global(.typing) {
+    display: flex;
+    gap: 5px;
+    padding: 14px 16px;
+    width: fit-content;
+  }
+  .log :global(.typing i) {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--muted);
+    animation: blink 1.2s infinite;
+  }
+  .log :global(.typing i:nth-child(2)) { animation-delay: 0.15s; }
+  .log :global(.typing i:nth-child(3)) { animation-delay: 0.3s; }
+
+  /* the "thinking" trace */
+  .log :global(.trace) {
+    position: relative;
+    display: grid;
+    gap: 5px;
+    padding: 10px 12px 10px 14px;
+    border-radius: 14px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    line-height: 1.4;
+    color: var(--muted);
+    background: rgba(0, 0, 0, 0.35);
+    box-shadow: inset 0 0 0 1px rgba(139, 108, 255, 0.22);
+    overflow: hidden;
+  }
+  .log :global(.trace::before) {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(180deg, var(--cyan), var(--violet), var(--pink));
+  }
+  .log :global(.trace:not(.done)::after) {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(100deg, transparent 30%, rgba(139, 108, 255, 0.12) 50%, transparent 70%);
+    animation: scan 1.4s linear infinite;
+  }
+  .log :global(.trace-head) {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--dim);
+  }
+  .log :global(.spark) {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    background: var(--violet);
+    box-shadow: 0 0 10px var(--violet);
+    animation: spin 2s linear infinite;
+  }
+  .log :global(.trace.done .spark) {
+    animation: none;
+    background: var(--lime);
+    box-shadow: 0 0 10px var(--lime);
+  }
+  .log :global(.t-route),
+  .log :global(.t-kv) {
+    animation: slide 0.35s var(--ease-out) both;
+  }
+  .log :global(.t-route) {
+    margin-top: 3px;
+  }
+  .log :global(.t-kv) {
+    display: grid;
+    grid-template-columns: 112px 1fr;
+    gap: 10px;
+  }
+  .log :global(.t-kv .k) {
+    color: var(--dim);
+  }
+  .log :global(.t-kv .k::before) {
+    content: "→ ";
+    color: var(--violet);
+  }
+  .log :global(.t-kv .v) {
+    color: #d8dbff;
+  }
+  :global(.no-think) .log :global(.trace) {
+    display: none;
+  }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-height: 52px;
+    padding: 8px 16px 12px;
+  }
+  .chips :global(.chip) {
+    border: 0;
+    padding: 7px 13px;
+    border-radius: 999px;
+    font-size: 13.5px;
+    background: rgba(43, 228, 255, 0.07);
+    color: #c9f7ff;
+    box-shadow: inset 0 0 0 1px rgba(43, 228, 255, 0.28);
+    cursor: pointer;
+    animation: pop 0.4s var(--ease-out) both;
+    animation-delay: calc(var(--i) * 60ms);
+    transition: background 0.2s, transform 0.2s;
+  }
+  .chips :global(.chip:hover) {
+    background: rgba(43, 228, 255, 0.16);
+    transform: translateY(-1px);
+  }
+
+  .input {
+    display: flex;
+    gap: 8px;
+    margin: 0 14px 14px;
+    padding: 6px 6px 6px 16px;
+    border-radius: 18px;
+    background: rgba(0, 0, 0, 0.35);
+    box-shadow: inset 0 0 0 1px var(--line-strong);
+  }
+  .input:focus-within {
+    box-shadow:
+      inset 0 0 0 1px rgba(43, 228, 255, 0.6),
+      0 0 24px -6px rgba(43, 228, 255, 0.5);
+  }
+  .input input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    color: var(--ink);
+    font: inherit;
+    font-size: 15px;
+    outline: none;
+  }
+  .input input::placeholder {
+    color: var(--dim);
+  }
+  .input button {
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    border: 0;
+    border-radius: 13px;
+    background: var(--lime);
+    color: #0a0c12;
+    cursor: pointer;
+    flex: none;
+  }
+
+  /* owner's Telegram — slides in next to the chat */
+  .owner {
+    position: absolute;
+    z-index: 5;
+    right: -36px;
+    bottom: 120px;
+    width: 300px;
+    padding: 14px;
+    border-radius: 18px;
+    background: rgba(22, 18, 6, 0.92);
+    backdrop-filter: blur(16px);
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 181, 71, 0.45),
+      0 30px 80px -20px rgba(255, 181, 71, 0.45);
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+    transition: opacity 0.4s var(--ease-out), transform 0.4s var(--ease-out);
+  }
+  /* room under the last bubble so the owner's card never covers the reply it is about */
+  .chat-wrap:global(.owner-open) .log {
+    padding-bottom: 200px;
+  }
+  .owner:global(.show) {
+    opacity: 1;
+    transform: none;
+  }
+  .o-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+  }
+  .tg {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #29a9eb;
+    color: #fff;
+  }
+  .o-time {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--amber);
+  }
+  .o-text {
+    margin: 10px 0 12px;
+    font-size: 13.5px;
+    line-height: 1.45;
+    color: #ffe9c7;
+  }
+  .o-actions {
+    display: grid;
+    gap: 6px;
+  }
+  .o-actions :global(.o-btn) {
+    border: 0;
+    padding: 9px 12px;
+    border-radius: 11px;
+    text-align: left;
+    font-size: 13px;
+    font-weight: 500;
+    background: rgba(255, 181, 71, 0.14);
+    color: #ffd99a;
+    box-shadow: inset 0 0 0 1px rgba(255, 181, 71, 0.35);
+    cursor: pointer;
+  }
+  .o-actions :global(.o-btn:hover) {
+    background: rgba(255, 181, 71, 0.26);
+  }
+  .o-actions :global(.o-btn)::before {
+    content: "↩ ";
+  }
+
+  .foot {
+    margin: 12px 4px 0;
+    text-align: center;
+    font-size: 12px;
+    color: var(--dim);
+  }
+
+  @media (max-width: 1240px) {
+    .owner { right: 12px; }
+  }
+  @media (max-width: 560px) {
+    .log { height: 400px; padding-inline: 12px; }
+    .log :global(.msg) { max-width: 94%; }
+    .log :global(.t-kv) { grid-template-columns: 92px 1fr; }
+    .owner { left: 12px; right: 12px; width: auto; bottom: 110px; }
+    .top { padding-inline: 14px; }
+  }
+
+  @keyframes pop {
+    from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  }
+  @keyframes slide {
+    from { opacity: 0; transform: translateX(-6px); }
+  }
+  @keyframes blink {
+    0%, 80%, 100% { opacity: 0.25; }
+    40% { opacity: 1; }
+  }
+  @keyframes scan {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(100%); }
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+</style>

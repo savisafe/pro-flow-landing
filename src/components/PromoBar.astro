@@ -1,0 +1,63 @@
+---
+// Promo slot. Later: read active promos (with start/end dates) from content data.
+import { PRICE } from "../config";
+---
+
+<div class="promo">
+  <div class="container inner">
+    <span class="pulse" aria-hidden="true"></span>
+    <span class="txt">
+      <b>Ранний доступ.</b> <span class="long">Подключаем вручную и настраиваем ассистента вместе с вами — первые</span><span class="short">Первые</span> {PRICE.trialDays} дней бесплатно.
+    </span>
+    <a href="#start" class="link">Занять место →</a>
+  </div>
+</div>
+
+<style>
+  .promo {
+    position: relative;
+    z-index: 30;
+    font-size: 13.5px;
+    color: var(--muted);
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(90deg, rgba(139, 108, 255, 0.14), rgba(43, 228, 255, 0.08), rgba(214, 255, 61, 0.1));
+  }
+  .inner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    min-height: 40px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    text-align: center;
+  }
+  b {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .pulse {
+    flex: none;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--lime);
+    box-shadow: 0 0 0 0 rgba(214, 255, 61, 0.6);
+    animation: pulse 2s infinite;
+  }
+  .link {
+    color: var(--lime);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  @keyframes pulse {
+    70% { box-shadow: 0 0 0 9px rgba(214, 255, 61, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(214, 255, 61, 0); }
+  }
+  .short { display: none; }
+  @media (max-width: 640px) {
+    .long { display: none; }
+    .short { display: inline; }
+    .inner { justify-content: flex-start; text-align: left; }
+  }
+</style>

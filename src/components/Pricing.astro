@@ -1,0 +1,153 @@
+---
+import { PRICE, formatTenge } from "../config";
+
+const included = [
+  "Ответы клиентам 24/7 в мессенджерах",
+  "Запись, перенос и отмена в вашей CRM",
+  "Распределение записей между сотрудниками",
+  "Голосовые сообщения",
+  "Сложные вопросы — вам в мессенджер",
+  "База знаний, тон и имя ассистента",
+  "Мультиязычность",
+  "Защита персональных данных",
+];
+---
+
+<section class="section pricing" id="pricing">
+  <div class="container">
+    <div class="section-head center reveal">
+      <span class="eyebrow">Цена</span>
+      <h2 class="display">Одна подписка. <span class="grad">Всё включено.</span></h2>
+      <p class="lead">Без тарифов, доплат за функции и скрытых платежей.</p>
+    </div>
+
+    <div class="wrap reveal">
+      <div class="price-card">
+        <div class="inner">
+          <div class="head">
+            <span class="badge mono">{PRICE.trialDays} дней бесплатно</span>
+            <div class="amount">
+              <span class="display num">{formatTenge(PRICE.monthly)}</span>
+              <span class="per">/ месяц</span>
+            </div>
+            <p class="day">меньше {formatTenge(PRICE.perDay)} в день — дешевле чашки кофе</p>
+          </div>
+
+          <ul class="inc">
+            {included.map((x) => <li>{x}</li>)}
+          </ul>
+
+          <a href="#start" class="btn btn-primary wide">Начать бесплатно <span class="arrow">→</span></a>
+          <p class="fine">
+            Пробный период: до {PRICE.trialReplies} ответов клиентам и {PRICE.trialVoice} голосовых. Тест-чат в кабинете —
+            без лимита. Отмена в любой момент.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .wrap {
+    display: flex;
+    justify-content: center;
+  }
+  .price-card {
+    position: relative;
+    width: 100%;
+    max-width: 560px;
+    padding: 2px;
+    border-radius: 32px;
+    background: conic-gradient(from var(--a, 0deg), var(--cyan), var(--violet), var(--pink), var(--lime), var(--cyan));
+    animation: rot 6s linear infinite;
+    box-shadow: 0 40px 140px -40px rgba(139, 108, 255, 0.7);
+  }
+  .price-card::before {
+    content: "";
+    position: absolute;
+    inset: -30px;
+    z-index: -1;
+    border-radius: 60px;
+    background: inherit;
+    filter: blur(50px);
+    opacity: 0.35;
+  }
+  .inner {
+    border-radius: 30px;
+    padding: clamp(28px, 5vw, 44px);
+    background:
+      radial-gradient(500px 260px at 50% 0%, rgba(139, 108, 255, 0.18), transparent 70%),
+      #070916;
+  }
+  .badge {
+    display: inline-block;
+    padding: 5px 11px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #0a0c12;
+    background: var(--lime);
+  }
+  .amount {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 22px 0 6px;
+  }
+  .num {
+    font-size: clamp(46px, 8vw, 72px);
+  }
+  .per {
+    color: var(--muted);
+    font-size: 18px;
+  }
+  .day {
+    margin: 0;
+    color: var(--dim);
+  }
+  .inc {
+    display: grid;
+    gap: 12px;
+    margin: 30px 0 32px;
+    padding: 26px 0 0;
+    border-top: 1px solid var(--line);
+    list-style: none;
+  }
+  .inc li {
+    position: relative;
+    padding-left: 30px;
+    font-size: 15.5px;
+  }
+  .inc li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 5px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--lime) 35%, rgba(214, 255, 61, 0.15) 40%);
+    box-shadow: 0 0 12px rgba(214, 255, 61, 0.6);
+  }
+  .wide {
+    width: 100%;
+    --h: 58px;
+  }
+  .fine {
+    margin: 16px 0 0;
+    font-size: 13px;
+    color: var(--dim);
+    text-align: center;
+  }
+  @property --a {
+    syntax: "<angle>";
+    inherits: false;
+    initial-value: 0deg;
+  }
+  @keyframes rot {
+    to { --a: 360deg; }
+  }
+</style>

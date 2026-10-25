@@ -1,0 +1,334 @@
+---
+import ChatDemo from "./ChatDemo.astro";
+import { PRICE, SALES_BOT_URL } from "../config";
+---
+
+<section class="hero" id="demo">
+  <div class="sky" aria-hidden="true">
+    <div class="aurora a1"></div>
+    <div class="aurora a2"></div>
+    <div class="aurora a3"></div>
+    <div class="stars"></div>
+    <div class="floor"></div>
+  </div>
+
+  <div class="container grid">
+    <div class="copy">
+      <div class="clock reveal">
+        <span class="dot" aria-hidden="true"></span>
+        <span class="mono" data-clock>23:41</span>
+        <span>салон закрыт — ассистент отвечает</span>
+      </div>
+
+      <h1 class="display title reveal" style="--d:.08s">
+        Администратор,<br />который <span class="grad">не&nbsp;спит</span>
+      </h1>
+
+      <p class="lead reveal" style="--d:.16s">
+        pro-flow отвечает вашим клиентам в мессенджерах за секунды, знает ваш прайс и сам записывает в CRM —
+        ночью, в выходные и пока вы заняты с клиентом.
+      </p>
+
+      <div class="actions reveal" style="--d:.24s">
+        <a href="#start" class="btn btn-primary">Попробовать {PRICE.trialDays} дней бесплатно <span class="arrow">→</span></a>
+        <a href="#inside" class="btn btn-ghost">Как он думает</a>
+      </div>
+
+      <ul class="facts reveal" style="--d:.32s">
+        <li><b>24/7</b><span>онлайн без выходных</span></li>
+        <li><b>Мультиязычный</b><span>язык общения — на ваш выбор</span></li>
+        <li><b>Безопасно</b><span>данные не уходят в нейросеть</span></li>
+      </ul>
+    </div>
+
+    <div class="demo reveal" style="--d:.2s">
+      <div class="halo" aria-hidden="true"></div>
+      <p class="try mono">↓ попробуйте прямо сейчас — напишите или нажмите подсказку</p>
+      <ChatDemo />
+      <a class="live" href={SALES_BOT_URL} target="_blank" rel="noopener">
+        <span class="live-dot" aria-hidden="true"></span>
+        <span>Это демо. Хотите живого? <b>Напишите нашему ассистенту в Telegram</b> — он работает на pro-flow</span>
+        <span class="arrow" aria-hidden="true">↗</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<script>
+  // Live "night" clock: shows the visitor's time if it is evening/night, otherwise a fixed late hour.
+  const c = document.querySelector("[data-clock]");
+  const tick = () => {
+    const d = new Date();
+    const h = d.getHours();
+    const night = h >= 21 || h < 8;
+    const hh = night ? h : 23;
+    const mm = night ? d.getMinutes() : 41;
+    if (c) c.textContent = `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+  };
+  tick();
+  setInterval(tick, 30_000);
+</script>
+
+<style>
+  .hero {
+    position: relative;
+    padding: clamp(40px, 7vw, 90px) 0 clamp(80px, 10vw, 130px);
+    overflow: hidden;
+  }
+
+  .sky {
+    position: absolute;
+    inset: -120px 0 0;
+    z-index: -1;
+    pointer-events: none;
+  }
+  .aurora {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(90px);
+    opacity: 0.55;
+    mix-blend-mode: screen;
+  }
+  .a1 {
+    width: 720px;
+    height: 520px;
+    left: -10%;
+    top: 0;
+    background: radial-gradient(circle, #5b3cff, transparent 65%);
+    animation: drift 18s ease-in-out infinite alternate;
+  }
+  .a2 {
+    width: 640px;
+    height: 560px;
+    right: -8%;
+    top: 60px;
+    background: radial-gradient(circle, #00b8ff, transparent 65%);
+    opacity: 0.4;
+    animation: drift 22s ease-in-out infinite alternate-reverse;
+  }
+  .a3 {
+    width: 520px;
+    height: 380px;
+    left: 38%;
+    top: 360px;
+    background: radial-gradient(circle, #b8ff00, transparent 65%);
+    opacity: 0.16;
+    animation: drift 26s ease-in-out infinite alternate;
+  }
+  .stars {
+    position: absolute;
+    inset: 0;
+    background-image:
+      radial-gradient(1px 1px at 12% 18%, #fff, transparent),
+      radial-gradient(1px 1px at 28% 72%, #cfd6ff, transparent),
+      radial-gradient(1.5px 1.5px at 44% 26%, #fff, transparent),
+      radial-gradient(1px 1px at 61% 12%, #cfd6ff, transparent),
+      radial-gradient(1px 1px at 72% 48%, #fff, transparent),
+      radial-gradient(1.5px 1.5px at 86% 22%, #d6ff3d, transparent),
+      radial-gradient(1px 1px at 92% 64%, #fff, transparent),
+      radial-gradient(1px 1px at 7% 52%, #2be4ff, transparent),
+      radial-gradient(1px 1px at 52% 58%, #fff, transparent),
+      radial-gradient(1px 1px at 35% 8%, #fff, transparent);
+    opacity: 0.7;
+    animation: twinkle 6s ease-in-out infinite alternate;
+  }
+  .floor {
+    position: absolute;
+    left: -20%;
+    right: -20%;
+    bottom: 0;
+    height: 55%;
+    background-image:
+      linear-gradient(rgba(139, 108, 255, 0.35) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(139, 108, 255, 0.35) 1px, transparent 1px);
+    background-size: 64px 64px;
+    transform: perspective(600px) rotateX(62deg);
+    transform-origin: bottom;
+    mask-image: linear-gradient(0deg, rgba(0, 0, 0, 0.9), transparent 75%);
+    animation: floor 10s linear infinite;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(380px, 500px);
+    gap: clamp(32px, 4vw, 56px);
+    /* top-aligned: the chat column is tall, centring pushed the CTA below the fold on 800px screens */
+    align-items: start;
+  }
+  .copy {
+    padding-top: clamp(16px, 5vh, 72px);
+  }
+
+  .clock {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 14px 7px 10px;
+    border-radius: 999px;
+    font-size: 13.5px;
+    color: var(--muted);
+    background: rgba(255, 255, 255, 0.04);
+    box-shadow: inset 0 0 0 1px var(--line-strong);
+    backdrop-filter: blur(8px);
+    margin-bottom: 26px;
+  }
+  .clock .mono {
+    color: var(--lime);
+    font-weight: 600;
+  }
+  .clock .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #3dff8b;
+    box-shadow: 0 0 10px #3dff8b;
+    animation: breathe 2s ease-in-out infinite;
+  }
+
+  .title {
+    /* "Администратор," is ~10.3em wide in Unbounded — size so it never overflows its column */
+    font-size: clamp(36px, 4vw, 56px);
+    margin-bottom: 26px;
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 34px 0 44px;
+  }
+
+  .facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px 28px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .facts li {
+    display: grid;
+    gap: 2px;
+  }
+  .facts b {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 18px;
+    letter-spacing: -0.02em;
+  }
+  .facts span {
+    font-size: 13.5px;
+    color: var(--dim);
+  }
+
+  .demo {
+    position: relative;
+  }
+  .halo {
+    position: absolute;
+    inset: 8% -6% 10%;
+    z-index: -1;
+    border-radius: 50%;
+    background: conic-gradient(from 180deg, #5b3cff, #00b8ff, #b8ff00, #ff4fd8, #5b3cff);
+    filter: blur(70px);
+    opacity: 0.35;
+    animation: spin 20s linear infinite;
+  }
+  .try {
+    margin: 0 0 12px;
+    text-align: center;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    color: var(--cyan);
+  }
+
+  .live {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: 520px;
+    margin: 14px auto 0;
+    padding: 12px 16px;
+    border-radius: 16px;
+    font-size: 13.5px;
+    line-height: 1.4;
+    color: var(--muted);
+    background: rgba(41, 169, 235, 0.08);
+    box-shadow: inset 0 0 0 1px rgba(41, 169, 235, 0.35);
+    transition: background 0.2s, transform 0.2s;
+  }
+  .live:hover {
+    background: rgba(41, 169, 235, 0.16);
+    transform: translateY(-1px);
+  }
+  .live b {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .live .arrow {
+    margin-left: auto;
+    color: #5cc8ff;
+    font-size: 16px;
+  }
+  .live-dot {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #3dff8b;
+    box-shadow: 0 0 10px #3dff8b;
+    animation: breathe 2s ease-in-out infinite;
+  }
+
+  @media (max-width: 1080px) {
+    .grid {
+      grid-template-columns: 1fr;
+    }
+    .copy {
+      text-align: center;
+    }
+    .title {
+      font-size: clamp(28px, calc((100vw - 48px) / 10.4), 76px);
+    }
+    .copy .lead {
+      margin-inline: auto;
+    }
+    .actions,
+    .facts {
+      justify-content: center;
+    }
+  }
+  /* short laptop screens (~560px visible): keep headline + CTA in the first fold */
+  @media (max-height: 700px) and (min-width: 1081px) {
+    .hero { padding-top: 20px; }
+    .copy { padding-top: 0; }
+    .clock { margin-bottom: 14px; }
+    .title { font-size: min(4.1vw, 46px); margin-bottom: 14px; }
+    .lead { font-size: 16px; }
+    .actions { margin: 20px 0 22px; }
+  }
+  @media (max-width: 480px) {
+    .actions .btn {
+      width: 100%;
+    }
+    .clock {
+      font-size: 12.5px;
+    }
+  }
+
+  @keyframes drift {
+    to { transform: translate(80px, 40px) scale(1.1); }
+  }
+  @keyframes twinkle {
+    to { opacity: 0.35; }
+  }
+  @keyframes floor {
+    to { background-position: 0 64px; }
+  }
+  @keyframes breathe {
+    50% { opacity: 0.4; }
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+</style>

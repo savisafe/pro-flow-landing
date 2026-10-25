@@ -1,0 +1,66 @@
+---
+const rowA = ["Салон красоты", "Барбершоп", "Ногтевая студия", "Косметология", "СПА и массаж", "Тату и перманент", "Стоматология", "Клиника", "Ветклиника", "Груминг"];
+const rowB = ["Фитнес и йога", "Танцы", "Репетиторы", "Детский центр", "Автомойка", "СТО и шиномонтаж", "Психолог", "Фотостудия", "Клининг", "Ателье"];
+---
+
+<section class="section niches" id="niches">
+  <div class="container">
+    <div class="section-head center reveal">
+      <span class="eyebrow">Сферы</span>
+      <h2 class="display">Знает, как говорят <span class="grad">в вашей сфере</span></h2>
+      <p class="lead">
+        Больше всего пользы там, где клиенты пишут узнать цену, подобрать услугу или записаться. Десятки сфер —
+        и любая другая услуга под вашу специфику.
+      </p>
+    </div>
+  </div>
+
+  <div class="marquee" aria-hidden="true">
+    <div class="track">{[...rowA, ...rowA].map((n) => <span class="pill">{n}</span>)}</div>
+  </div>
+  <div class="marquee rev" aria-hidden="true">
+    <div class="track">{[...rowB, ...rowB].map((n) => <span class="pill">{n}</span>)}</div>
+  </div>
+  <ul class="sr-only">{[...rowA, ...rowB].map((n) => <li>{n}</li>)}</ul>
+</section>
+
+<style>
+  .marquee {
+    overflow: hidden;
+    padding: 8px 0;
+    mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  }
+  .track {
+    display: flex;
+    gap: 14px;
+    width: max-content;
+    animation: mq 46s linear infinite;
+  }
+  .rev .track {
+    animation-direction: reverse;
+    animation-duration: 54s;
+  }
+  .marquee:hover .track {
+    animation-play-state: paused;
+  }
+  .pill {
+    padding: 16px 26px;
+    border-radius: 999px;
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: clamp(16px, 2vw, 22px);
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+    background: rgba(255, 255, 255, 0.03);
+    box-shadow: inset 0 0 0 1px var(--line-strong);
+    transition: background 0.3s, color 0.3s, box-shadow 0.3s;
+  }
+  .pill:hover {
+    color: #0a0c12;
+    background: var(--lime);
+    box-shadow: 0 0 40px -6px var(--lime);
+  }
+  @keyframes mq {
+    to { transform: translateX(-50%); }
+  }
+</style>

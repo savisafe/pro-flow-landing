@@ -1,0 +1,87 @@
+---
+import Logo from "./Logo.astro";
+const year = new Date().getFullYear();
+---
+
+<footer class="footer">
+  <div class="container grid">
+    <div class="brand">
+      <Logo />
+      <p>ИИ-администратор для сервисного бизнеса. Отвечает клиентам 24/7 и записывает в вашу CRM.</p>
+    </div>
+    <nav aria-label="Продукт">
+      <b>Продукт</b>
+      <a href="#demo">Демо</a>
+      <a href="#features">Возможности</a>
+      <a href="#pricing">Цена</a>
+      <a href="#security">Безопасность</a>
+    </nav>
+    <nav aria-label="Ресурсы">
+      <b>Ресурсы</b>
+      <a href="#faq">Вопросы и ответы</a>
+      <a href="#calculator">Калькулятор потерь</a>
+      <a href="/llms.txt">Для AI-ассистентов</a>
+    </nav>
+    <nav aria-label="Документы">
+      <b>Документы</b>
+      <span class="soon">Политика конфиденциальности</span>
+      <span class="soon">Публичная оферта</span>
+    </nav>
+  </div>
+  <div class="container bottom">
+    <span>© {year} pro-flow</span>
+    <span class="mono">Алматы · Казахстан</span>
+  </div>
+</footer>
+
+<style>
+  .footer {
+    border-top: 1px solid var(--line);
+    padding: 60px 0 30px;
+    font-size: 14.5px;
+    background: linear-gradient(180deg, transparent, rgba(139, 108, 255, 0.05));
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr 1fr 1fr;
+    gap: 32px;
+  }
+  .brand p {
+    max-width: 320px;
+    color: var(--dim);
+    margin: 16px 0 0;
+  }
+  nav {
+    display: grid;
+    gap: 10px;
+    align-content: start;
+  }
+  nav b {
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  nav a,
+  .soon {
+    color: var(--muted);
+  }
+  nav a:hover {
+    color: var(--ink);
+  }
+  .soon {
+    opacity: 0.55;
+  }
+  .bottom {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: 48px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    color: var(--dim);
+    font-size: 13px;
+  }
+  @media (max-width: 800px) {
+    .grid { grid-template-columns: 1fr 1fr; }
+    .brand { grid-column: 1 / -1; }
+  }
+</style>

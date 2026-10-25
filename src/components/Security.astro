@@ -1,0 +1,254 @@
+---
+const points = [
+  { t: "Сначала согласие", d: "Ассистент спрашивает у клиента согласие на обработку данных и отвечает только после «да»." },
+  { t: "Нейросеть не видит личного", d: "Имена, телефоны, email, номера документов и карт заменяются метками до отправки модели." },
+  { t: "Голос — на наших серверах", d: "Голосовые распознаются у нас и наружу не отправляются." },
+  { t: "Удаление по запросу", d: "Все данные конкретного клиента удаляются из кабинета в один клик." },
+];
+---
+
+<section class="section security" id="security">
+  <div class="container grid">
+    <div>
+      <div class="section-head reveal">
+        <span class="eyebrow">Безопасность</span>
+        <h2 class="display">Данные клиентов <span class="grad">остаются вашими</span></h2>
+        <p class="lead">pro-flow работает по закону Республики Казахстан «О персональных данных и их защите».</p>
+      </div>
+      <ul class="pts">
+        {
+          points.map((p, i) => (
+            <li class="reveal" style={`--d:${i * 0.07}s`}>
+              <span class="ic" aria-hidden="true">✓</span>
+              <div>
+                <b>{p.t}</b>
+                <p>{p.d}</p>
+              </div>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+
+    <div class="term card reveal" style="--d:.1s" data-pii>
+      <div class="bar"><i></i><i></i><i></i><span class="mono">pii-gateway</span></div>
+      <div class="pane">
+        <span class="lab mono">клиент написал</span>
+        <p class="raw" data-raw>…</p>
+        <span class="lab mono">нейросеть видит</span>
+        <p class="safe mono" data-safe>…</p>
+        <div class="found mono" data-found></div>
+      </div>
+      <div class="shield" aria-hidden="true"></div>
+    </div>
+  </div>
+</section>
+
+<script>
+  type Part = string | { v: string; tag: string; kind: string };
+  const samples: Part[][] = [
+    ["Здравствуйте, я ", { v: "Айгерім", tag: "[ИМЯ]", kind: "имя" }, ", мой номер ", { v: "+7 701 234 56 78", tag: "[ТЕЛЕФОН]", kind: "телефон" }, ". Запишите на маникюр"],
+    ["Пришлите чек на ", { v: "dana.k@mail.kz", tag: "[EMAIL]", kind: "email" }, ", пожалуйста. Это ", { v: "Дана", tag: "[ИМЯ]", kind: "имя" }],
+    ["ИИН ", { v: "950312450123", tag: "[ДОКУМЕНТ]", kind: "документ" }, ", хочу перенести запись к стоматологу"],
+  ];
+  const root = document.querySelector<HTMLElement>("[data-pii]");
+  if (root) {
+    const raw = root.querySelector<HTMLElement>("[data-raw]")!;
+    const safe = root.querySelector<HTMLElement>("[data-safe]")!;
+    const found = root.querySelector<HTMLElement>("[data-found]")!;
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const wait = (t: number) => new Promise((r) => setTimeout(r, reduce ? 0 : t));
+    const GLYPHS = "▓▒░█#@$%&*";
+    let i = 0;
+    let running = false;
+
+    const render = (el: HTMLElement, parts: Part[], fn: (p: Exclude<Part, string>) => Node) => {
+      el.replaceChildren(...parts.map((p) => (typeof p === "string" ? document.createTextNode(p) : fn(p))));
+    };
+
+    async function play() {
+      if (running) return;
+      running = true;
+      while (true) {
+        const parts = samples[i % samples.length];
+        i++;
+        root!.classList.remove("scanned");
+        found.replaceChildren();
+        render(raw, parts, (p) => Object.assign(document.createElement("em"), { textContent: p.v }));
+        render(safe, parts, (p) => Object.assign(document.createElement("span"), { className: "tok", textContent: p.v }));
+        await wait(900);
+        root!.classList.add("scanned");
+        const toks = [...safe.querySelectorAll<HTMLElement>(".tok")];
+        const pii = parts.filter((p): p is Exclude<Part, string> => typeof p !== "string");
+        for (let f = 0; f < 10; f++) {
+          toks.forEach((t, k) => {
+            t.textContent = Array.from(pii[k].v, () => GLYPHS[(Math.random() * GLYPHS.length) | 0]).join("").slice(0, Math.max(4, pii[k].v.length - f));
+          });
+          await wait(55);
+        }
+        toks.forEach((t, k) => {
+          t.textContent = pii[k].tag;
+          t.classList.add("done");
+        });
+        found.replaceChildren(
+          ...pii.map((p) => Object.assign(document.createElement("span"), { textContent: `✓ ${p.kind}` })),
+        );
+        await wait(3200);
+      }
+    }
+    new IntersectionObserver((e, o) => {
+      if (e[0].isIntersecting) {
+        o.disconnect();
+        play();
+      }
+    }).observe(root);
+  }
+</script>
+
+<style>
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(32px, 6vw, 80px);
+    align-items: center;
+  }
+  .section-head {
+    margin-bottom: 36px;
+  }
+  .section-head h2 {
+    font-size: clamp(32px, 4.2vw, 54px);
+  }
+  .pts {
+    display: grid;
+    gap: 20px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .pts li {
+    display: flex;
+    gap: 16px;
+  }
+  .ic {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
+    font-size: 14px;
+    color: #7dffb2;
+    background: rgba(125, 255, 178, 0.1);
+    box-shadow: inset 0 0 0 1px rgba(125, 255, 178, 0.35);
+  }
+  .pts b {
+    font-weight: 600;
+  }
+  .pts p {
+    margin: 4px 0 0;
+    color: var(--muted);
+    font-size: 15px;
+  }
+
+  .term {
+    border-radius: 24px;
+  }
+  .bar {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line);
+  }
+  .bar i {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.14);
+  }
+  .bar span {
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--dim);
+  }
+  .pane {
+    display: grid;
+    gap: 10px;
+    padding: 24px 22px 26px;
+    min-height: 330px;
+    align-content: start;
+  }
+  .lab {
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--dim);
+  }
+  .raw {
+    margin: 0 0 14px;
+    font-size: 18px;
+    line-height: 1.5;
+  }
+  .raw :global(em) {
+    font-style: normal;
+    color: #ffb3c1;
+    background: rgba(255, 91, 120, 0.12);
+    border-radius: 5px;
+    padding: 0 4px;
+  }
+  .safe {
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.7;
+    color: #d8dbff;
+  }
+  .safe :global(.tok) {
+    padding: 2px 6px;
+    border-radius: 6px;
+    color: #ffb3c1;
+    background: rgba(255, 91, 120, 0.12);
+    transition: background 0.3s, color 0.3s;
+  }
+  .safe :global(.tok.done) {
+    color: #7dffb2;
+    background: rgba(125, 255, 178, 0.14);
+    box-shadow: 0 0 18px -4px rgba(125, 255, 178, 0.7);
+  }
+  .found {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+    min-height: 26px;
+    font-size: 12px;
+    color: #7dffb2;
+  }
+  .found :global(span) {
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(125, 255, 178, 0.08);
+    box-shadow: inset 0 0 0 1px rgba(125, 255, 178, 0.3);
+  }
+  .shield {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #7dffb2, transparent);
+    box-shadow: 0 0 24px #7dffb2;
+    opacity: 0;
+  }
+  .term:global(.scanned) .shield {
+    animation: sweep 0.9s var(--ease-out);
+  }
+
+  @media (max-width: 960px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+
+  @keyframes sweep {
+    0% { top: 50px; opacity: 1; }
+    100% { top: 100%; opacity: 0; }
+  }
+</style>

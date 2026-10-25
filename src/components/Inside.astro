@@ -1,0 +1,237 @@
+---
+const routes = [
+  { r: "template", name: "Шаблон", d: "Частые вопросы — цена, часы, адрес. Мгновенно, по вашим данным." },
+  { r: "scenario", name: "Сценарий", d: "Запись, перенос, отмена — пошагово, прямо в журнал вашей CRM." },
+  { r: "knowledge", name: "База знаний", d: "Узкие вопросы — по вашим регламентам и статьям." },
+  { r: "llm", name: "Нейросеть", d: "Только для живого разговора и только на тех же фактах." },
+  { r: "owner", name: "Владелец", d: "Нет в данных — не выдумывает, а спрашивает вас в мессенджере." },
+];
+---
+
+<section class="section inside" id="inside">
+  <div class="container">
+    <div class="section-head center reveal">
+      <span class="eyebrow">Загляните внутрь</span>
+      <h2 class="display">Он не угадывает.<br /><span class="grad">Он знает.</span></h2>
+      <p class="lead">
+        В основе pro-flow — детерминированное ядро. Цены, адреса и запись берутся из данных вашего бизнеса, а нейросеть
+        подключается, только когда нужен живой разговор.
+      </p>
+    </div>
+
+    <div class="flow card reveal">
+      <div class="node">
+        <span class="n-cap mono">01 · сообщение</span>
+        <div class="msg">«Здравствуйте, я Айгерім. Сколько стоит стрижка?»</div>
+      </div>
+
+      <div class="wire" aria-hidden="true"><i></i></div>
+
+      <div class="node">
+        <span class="n-cap mono">02 · PII-шлюз</span>
+        <div class="mask mono">
+          «Здравствуйте, я <s>Айгерім</s> <mark>[ИМЯ]</mark>. Сколько стоит стрижка?»
+        </div>
+        <span class="n-note">личные данные заменены до нейросети</span>
+      </div>
+
+      <div class="wire" aria-hidden="true"><i></i></div>
+
+      <div class="node router">
+        <span class="n-cap mono">03 · маршрутизатор</span>
+        <ul class="paths">
+          {routes.map((x, i) => (
+            <li style={`--i:${i}`} class={x.r === "template" ? "pick" : ""}>
+              <span class="route" data-r={x.r}>{x.name}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div class="wire" aria-hidden="true"><i></i></div>
+
+      <div class="node">
+        <span class="n-cap mono">04 · ответ · 41 мс</span>
+        <div class="msg bot">Стрижка женская — 8 000 ₸, с укладкой — 11 000 ₸. Записать вас?</div>
+        <span class="n-note">источник: ваш прайс · нейросеть не вызывалась</span>
+      </div>
+    </div>
+
+    <div class="legend">
+      {
+        routes.map((x, i) => (
+          <div class="leg card reveal" style={`--d:${i * 0.06}s`}>
+            <span class="route" data-r={x.r}>{x.name}</span>
+            <p>{x.d}</p>
+          </div>
+        ))
+      }
+    </div>
+
+    <p class="kpi reveal">
+      В кабинете видно, как ассистент отвечал: сколько ответов дано по шаблонам и сценариям — без нейросети.
+    </p>
+  </div>
+</section>
+
+<style>
+  .flow {
+    display: grid;
+    grid-template-columns: 1fr 40px 1fr 40px 1fr 40px 1fr;
+    align-items: center;
+    padding: clamp(20px, 3vw, 34px);
+    border-radius: 28px;
+  }
+  .node {
+    display: grid;
+    gap: 10px;
+    align-content: start;
+  }
+  .n-cap {
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--dim);
+  }
+  .n-note {
+    font-size: 12.5px;
+    color: var(--dim);
+  }
+  .msg {
+    padding: 12px 14px;
+    border-radius: 16px 16px 16px 6px;
+    font-size: 14.5px;
+    line-height: 1.45;
+    background: linear-gradient(135deg, #6d4dff, #8b6cff);
+  }
+  .msg.bot {
+    background: rgba(255, 255, 255, 0.07);
+    box-shadow: inset 0 0 0 1px rgba(214, 255, 61, 0.35);
+  }
+  .mask {
+    padding: 12px 14px;
+    border-radius: 14px;
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: #cfd3ff;
+    background: rgba(0, 0, 0, 0.35);
+    box-shadow: inset 0 0 0 1px rgba(125, 255, 178, 0.3);
+  }
+  .mask s {
+    color: #ff5b78;
+    text-decoration-thickness: 2px;
+  }
+  .mask mark {
+    padding: 1px 5px;
+    border-radius: 5px;
+    background: rgba(125, 255, 178, 0.16);
+    color: #7dffb2;
+  }
+
+  .wire {
+    position: relative;
+    height: 2px;
+    margin: 0 4px;
+    background: linear-gradient(90deg, var(--line-strong), rgba(139, 108, 255, 0.6));
+  }
+  .wire i {
+    position: absolute;
+    top: -3px;
+    left: 0;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--cyan);
+    box-shadow: 0 0 12px var(--cyan);
+    animation: flowx 1.8s linear infinite;
+  }
+
+  .paths {
+    display: grid;
+    gap: 7px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .paths li {
+    opacity: 0.32;
+    transition: opacity 0.3s;
+    animation: scanpath 5s infinite;
+    animation-delay: calc(var(--i) * 0.25s);
+  }
+  .paths li.pick {
+    opacity: 1;
+    animation: none;
+  }
+  .paths li.pick .route {
+    box-shadow:
+      inset 0 0 0 1px var(--c),
+      0 0 22px -2px var(--c);
+  }
+
+  .legend {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 14px;
+    margin-top: 16px;
+  }
+  .leg {
+    padding: 18px;
+  }
+  .leg p {
+    margin: 12px 0 0;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .kpi {
+    margin: 30px auto 0;
+    text-align: center;
+    color: var(--dim);
+    font-size: 15px;
+    max-width: 640px;
+  }
+
+  @media (max-width: 1080px) {
+    .flow {
+      grid-template-columns: 1fr;
+      gap: 0;
+    }
+    .wire {
+      width: 2px;
+      height: 34px;
+      margin: 8px auto;
+      background: linear-gradient(180deg, var(--line-strong), rgba(139, 108, 255, 0.6));
+    }
+    .wire i {
+      left: -3px;
+      top: 0;
+      animation-name: flowy;
+    }
+    .paths {
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    }
+    .legend {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  @media (max-width: 560px) {
+    .legend {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @keyframes flowx {
+    from { left: 0; opacity: 0; }
+    20% { opacity: 1; }
+    to { left: calc(100% - 8px); opacity: 0; }
+  }
+  @keyframes flowy {
+    from { top: 0; opacity: 0; }
+    20% { opacity: 1; }
+    to { top: calc(100% - 8px); opacity: 0; }
+  }
+  @keyframes scanpath {
+    0%, 12%, 100% { opacity: 0.32; }
+    6% { opacity: 0.9; }
+  }
+</style>

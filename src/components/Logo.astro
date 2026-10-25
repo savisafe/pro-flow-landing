@@ -1,0 +1,63 @@
+---
+// Same mark as the cabinet (nanokernel-front/src/shared/ui/logo.tsx): rounded square with three
+// chevrons. Colours follow the landing palette — a violet gradient instead of the cabinet's indigo → cyan.
+interface Props {
+  size?: number;
+}
+const { size = 30 } = Astro.props;
+// unique per instance: the logo renders in both header and footer
+const gid = `lg-${Math.random().toString(36).slice(2, 8)}`;
+const chevrons = [
+  { x: 8, opacity: 0.45 },
+  { x: 14, opacity: 0.75 },
+  { x: 20, opacity: 1 },
+];
+---
+
+<span class="logo">
+  <svg class="mark" width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
+    <defs>
+      <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#b49cff"></stop>
+        <stop offset="1" stop-color="#5b3cff"></stop>
+      </linearGradient>
+    </defs>
+    <rect width="32" height="32" rx="9" fill={`url(#${gid})`}></rect>
+    {
+      chevrons.map(({ x, opacity }) => (
+        <path
+          d={`M${x} 10l6 6-6 6`}
+          fill="none"
+          stroke="#ffffff"
+          stroke-opacity={opacity}
+          stroke-width="3"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      ))
+    }
+  </svg>
+  <span class="word">pro<span>-</span>flow</span>
+</span>
+
+<style>
+  .logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .mark {
+    flex: none;
+    filter: drop-shadow(0 0 12px rgba(139, 108, 255, 0.45));
+  }
+  .word {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 19px;
+    letter-spacing: -0.03em;
+    white-space: nowrap;
+  }
+  .word span {
+    color: var(--lime);
+  }
+</style>

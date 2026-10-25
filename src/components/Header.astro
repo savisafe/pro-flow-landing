@@ -1,0 +1,94 @@
+---
+import Logo from "./Logo.astro";
+import LangSelect from "./LangSelect.astro";
+
+const nav = [
+  { href: "#demo", label: "Демо" },
+  { href: "#inside", label: "Как думает" },
+  { href: "#features", label: "Возможности" },
+  { href: "#niches", label: "Сферы" },
+  { href: "#security", label: "Безопасность" },
+  { href: "#pricing", label: "Цена" },
+  { href: "#faq", label: "FAQ" },
+];
+---
+
+<header class="header" data-header>
+  <div class="container bar">
+    <a href="/" aria-label="pro-flow — на главную"><Logo /></a>
+
+    <nav class="nav" aria-label="Основная навигация">
+      {nav.map((n) => <a href={n.href}>{n.label}</a>)}
+    </nav>
+
+    <div class="right">
+      <LangSelect />
+      <a href="#start" class="btn btn-primary cta">Попробовать</a>
+    </div>
+  </div>
+</header>
+
+<script>
+  const h = document.querySelector("[data-header]");
+  const onScroll = () => h?.classList.toggle("scrolled", window.scrollY > 40);
+  onScroll();
+  window.addEventListener("scroll", onScroll, { passive: true });
+</script>
+
+<style>
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    transition: background 0.3s, border-color 0.3s, backdrop-filter 0.3s;
+    border-bottom: 1px solid transparent;
+  }
+  .header:global(.scrolled) {
+    background: rgba(4, 5, 12, 0.72);
+    backdrop-filter: blur(18px) saturate(1.4);
+    border-color: var(--line);
+  }
+  .bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    height: 72px;
+  }
+  .nav {
+    display: flex;
+    gap: 4px;
+    padding: 5px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.03);
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+  .nav a {
+    padding: 7px 14px;
+    border-radius: 999px;
+    font-size: 14px;
+    color: var(--muted);
+    transition: color 0.2s, background 0.2s;
+  }
+  .nav a:hover {
+    color: var(--ink);
+    background: rgba(255, 255, 255, 0.06);
+  }
+  .right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .cta {
+    --h: 42px;
+    padding: 0 20px;
+    font-size: 14.5px;
+  }
+  @media (max-width: 1080px) {
+    .nav { display: none; }
+  }
+  @media (max-width: 420px) {
+    .right { gap: 8px; }
+    .cta { padding: 0 16px; }
+  }
+</style>

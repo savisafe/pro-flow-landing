@@ -1,0 +1,84 @@
+---
+import "../styles/global.css";
+import { BRAND, SITE_URL } from "../config";
+
+interface Props {
+  title: string;
+  description: string;
+  /** schema.org objects, rendered as one JSON-LD @graph */
+  schema?: Record<string, unknown>[];
+  ogImage?: string;
+}
+
+const { title, description, schema = [], ogImage = "/og.png" } = Astro.props;
+const canonical = new URL(Astro.url.pathname, SITE_URL).href;
+const jsonLd = JSON.stringify({ "@context": "https://schema.org", "@graph": schema });
+---
+
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- reveal animations only when JS runs: without it the content stays visible -->
+    <script is:inline>document.documentElement.classList.add("js")</script>
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <!-- kk/en alternates are added when those locales ship -->
+    <link rel="alternate" hreflang="ru" href={canonical} />
+    <link rel="alternate" hreflang="x-default" href={canonical} />
+    <meta name="theme-color" content="#04050c" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={BRAND} />
+    <meta property="og:locale" content="ru_RU" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={new URL(ogImage, SITE_URL).href} />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Onest:wght@400;500;600;700&family=Unbounded:wght@500;600;700&display=swap&subset=cyrillic,cyrillic-ext"
+      rel="stylesheet"
+    />
+
+    {schema.length > 0 && <script is:inline type="application/ld+json" set:html={jsonLd} />}
+  </head>
+  <body>
+    <slot />
+
+    <script>
+      // Scroll reveal
+      const io = new IntersectionObserver(
+        (entries) => {
+          for (const e of entries) {
+            if (e.isIntersecting) {
+              e.target.classList.add("in");
+              io.unobserve(e.target);
+            }
+          }
+        },
+        { rootMargin: "0px 0px -8% 0px", threshold: 0.08 },
+      );
+      document.querySelectorAll(".reveal").forEach((el) => io.observe(el));
+
+      // Cursor spotlight on glass cards
+      document.addEventListener(
+        "pointermove",
+        (ev) => {
+          const card = (ev.target as Element | null)?.closest?.(".card") as HTMLElement | null;
+          if (!card) return;
+          const r = card.getBoundingClientRect();
+          card.style.setProperty("--mx", `${ev.clientX - r.left}px`);
+          card.style.setProperty("--my", `${ev.clientY - r.top}px`);
+        },
+        { passive: true },
+      );
+    </script>
+  </body>
+</html>

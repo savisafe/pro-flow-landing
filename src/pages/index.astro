@@ -1,0 +1,83 @@
+---
+import Base from "../layouts/Base.astro";
+import PromoBar from "../components/PromoBar.astro";
+import Header from "../components/Header.astro";
+import Hero from "../components/Hero.astro";
+import Night from "../components/Night.astro";
+import Inside from "../components/Inside.astro";
+import Steps from "../components/Steps.astro";
+import Features from "../components/Features.astro";
+import Niches from "../components/Niches.astro";
+import Security from "../components/Security.astro";
+import Pricing from "../components/Pricing.astro";
+import Faq from "../components/Faq.astro";
+import FinalCta from "../components/FinalCta.astro";
+import Footer from "../components/Footer.astro";
+import { FAQ } from "../data/faq";
+import { BRAND, PRICE, SITE_URL } from "../config";
+
+const title = "pro-flow — ИИ-администратор: отвечает клиентам 24/7 и записывает в CRM";
+const description =
+  "ИИ-администратор для салонов, клиник и сервисного бизнеса в Казахстане. Отвечает клиентам в мессенджерах за секунды, называет цены из вашего прайса и сам записывает в CRM. 25 000 ₸/мес, 7 дней бесплатно.";
+
+const schema = [
+  {
+    "@type": "Organization",
+    "@id": `${SITE_URL}/#org`,
+    name: BRAND,
+    url: SITE_URL,
+    logo: `${SITE_URL}/favicon.svg`,
+    areaServed: "KZ",
+  },
+  {
+    "@type": "SoftwareApplication",
+    name: BRAND,
+    applicationCategory: "BusinessApplication",
+    operatingSystem: "Web",
+    description,
+    inLanguage: ["ru", "kk", "en"],
+    publisher: { "@id": `${SITE_URL}/#org` },
+    offers: {
+      "@type": "Offer",
+      price: PRICE.monthly,
+      priceCurrency: PRICE.currency,
+      description: `Подписка в месяц, все функции. Первые ${PRICE.trialDays} дней бесплатно.`,
+    },
+    featureList: [
+      "Ответы клиентам 24/7 в Telegram",
+      "Запись, перенос и отмена в CRM",
+      "Распределение записей между сотрудниками",
+      "Распознавание голосовых сообщений",
+      "Передача сложных вопросов владельцу",
+      "Мультиязычность",
+      "Маскирование персональных данных перед нейросетью",
+    ],
+  },
+  {
+    "@type": "FAQPage",
+    mainEntity: FAQ.map((f) => ({
+      "@type": "Question",
+      name: f.q,
+      acceptedAnswer: { "@type": "Answer", text: f.a },
+    })),
+  },
+];
+---
+
+<Base title={title} description={description} schema={schema}>
+  <PromoBar />
+  <Header />
+  <main>
+    <Hero />
+    <Night />
+    <Inside />
+    <Steps />
+    <Features />
+    <Niches />
+    <Security />
+    <Pricing />
+    <Faq />
+    <FinalCta />
+  </main>
+  <Footer />
+</Base>
