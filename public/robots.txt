@@ -1,4 +1,4 @@
-# Search engines and AI assistants are welcome: we want pro-flow to be found and cited.
+# Search engines and AI assistants are welcome: we want WeReplyFirst to be found and cited.
 User-agent: *
 Allow: /
 
@@ -26,4 +26,4 @@ Allow: /
 User-agent: Google-Extended
 Allow: /
 
-Sitemap: https://pro-flow.kz/sitemap-index.xml
+Sitemap: https://wereplyfirst.com/sitemap-index.xml

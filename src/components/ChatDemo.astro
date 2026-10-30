@@ -11,7 +11,7 @@
         <span class="ava" aria-hidden="true"><span></span></span>
         <div>
           <div class="name" data-name>Салон «Люмен»</div>
-          <div class="status"><i></i><span data-status>ассистент pro-flow · онлайн</span></div>
+          <div class="status"><i></i><span data-status>ассистент WeReplyFirst · онлайн</span></div>
         </div>
       </div>
       <label class="think-toggle">
@@ -23,7 +23,7 @@
 
     <div class="tabs" role="tablist" aria-label="Режим демо">
       <button role="tab" aria-selected="true" data-mode="client">Я клиент салона</button>
-      <button role="tab" aria-selected="false" data-mode="product">Спросить про pro-flow</button>
+      <button role="tab" aria-selected="false" data-mode="product">Спросить про WeReplyFirst</button>
     </div>
 
     <div class="log" data-log aria-live="polite"></div>
@@ -340,7 +340,7 @@
     };
   }
 
-  // What pro-flow does not do yet — answered straight, from the knowledge base.
+  // What WeReplyFirst does not do yet — answered straight, from the knowledge base.
   const LIMITS: [RegExp, string][] = [
     [/звон|звонк|позвон/, "Нет, я работаю только в переписке — звонить и принимать звонки не умею."],
     [/фото|картин|изображ|скрин/, "Фото клиентов я не распознаю — вежливо прошу описать вопрос словами. Голосовые понимаю."],
@@ -356,13 +356,13 @@
     const limit = LIMITS.find(([re]) => re.test(s));
     if (limit)
       return {
-        trace: [r("knowledge"), kv("статья", "«Чего pro-flow пока не делает»"), kv("правило", "не обещать лишнего"), ms()],
+        trace: [r("knowledge"), kv("статья", "«Чего WeReplyFirst пока не делает»"), kv("правило", "не обещать лишнего"), ms()],
         text: limit[1],
         chips: ["Что ты умеешь?", "Сколько стоит?"],
       };
     if (/стоит|цен|тариф|оплат|дорог|сколько/.test(s))
       return {
-        trace: [r("template"), kv("намерение", "цена · 0.98"), kv("источник", "тарифы pro-flow"), kv("нейросеть", "не вызывалась"), ms()],
+        trace: [r("template"), kv("намерение", "цена · 0.98"), kv("источник", "тарифы WeReplyFirst"), kv("нейросеть", "не вызывалась"), ms()],
         text: "25 000 ₸ в месяц — меньше 850 ₸ в день, все функции сразу. Первые 7 дней бесплатно, до 500 ответов клиентам. Отменить можно в любой момент.",
         chips: ["Как начать?", "А ты не наврёшь клиенту?"],
       };
@@ -399,11 +399,11 @@
     if (/привет|здравст|салам|сәлем/.test(s))
       return {
         trace: [r("template"), kv("намерение", "приветствие"), ms()],
-        text: "Привет! Спросите что угодно о pro-flow — или нажмите «Покажи запись», и я сыграю администратора салона.",
+        text: "Привет! Спросите что угодно о WeReplyFirst — или нажмите «Покажи запись», и я сыграю администратора салона.",
         chips: ["Что ты умеешь?", "Покажи запись"],
       };
     return {
-      trace: [r("knowledge"), kv("поиск", "совпадений нет · 0.31"), kv("решение", "не выдумывать"), r("owner", "Эскалация"), kv("действие", "вопрос → команде pro-flow"), ms()],
+      trace: [r("knowledge"), kv("поиск", "совпадений нет · 0.31"), kv("решение", "не выдумывать"), r("owner", "Эскалация"), kv("действие", "вопрос → команде WeReplyFirst"), ms()],
       text: "Точного ответа в моей базе нет — выдумывать не буду. Передам вопрос команде и вернусь с ответом. А пока могу показать, как записываю клиентов.",
       chips: ["Покажи запись", "Что ты умеешь?"],
     };
@@ -417,7 +417,7 @@
     },
     product: {
       trace: [],
-      text: "Привет! Я ассистент pro-flow — и сам работаю на этом продукте. Как я отвечаю вам, так буду отвечать вашим клиентам. Спрашивайте.",
+      text: "Привет! Я ассистент WeReplyFirst — и сам работаю на этом продукте. Как я отвечаю вам, так буду отвечать вашим клиентам. Спрашивайте.",
       chips: ["Что ты умеешь?", "Сколько стоит?", "А ты не наврёшь клиенту?", "Говоришь по-казахски?"],
     },
   };
@@ -573,7 +573,7 @@
     owner.classList.remove("show");
     owner.hidden = true;
     root.classList.remove("owner-open");
-    statusEl.textContent = "ассистент pro-flow · онлайн";
+    statusEl.textContent = "ассистент WeReplyFirst · онлайн";
   }
 
   async function send(text: string) {
@@ -616,8 +616,8 @@
     b = {};
     hideOwner();
     tabs.forEach((t) => t.setAttribute("aria-selected", String(t.dataset.mode === m)));
-    nameEl.textContent = m === "client" ? "Салон «Люмен»" : "pro-flow";
-    input.placeholder = m === "client" ? "Напишите как клиент…" : "Спросите о pro-flow…";
+    nameEl.textContent = m === "client" ? "Салон «Люмен»" : "WeReplyFirst";
+    input.placeholder = m === "client" ? "Напишите как клиент…" : "Спросите о WeReplyFirst…";
     log.replaceChildren();
     const g = GREETING[m];
     const row = el("div", "msg bot");

@@ -2,7 +2,7 @@
   "name": "nanokernel-landing",
   "private": true,
   "version": "0.1.0",
-  "description": "pro-flow marketing site: landing, niches, blog. Static-first for SEO and AI search.",
+  "description": "WeReplyFirst marketing site: landing, niches, blog. Static-first for SEO and AI search.",
   "type": "module",
   "engines": {
     "node": ">=20.19"

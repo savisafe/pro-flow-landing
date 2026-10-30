@@ -1,15 +1,15 @@
 // Single place for facts the site states. Keep in sync with
 // sales-knowledge-base/pro-flow-knowledge-base.md — the landing must not promise more.
 
-export const BRAND = "pro-flow";
+export const BRAND = "WeReplyFirst";
 
 // TODO: real domains and contacts before launch.
-export const SITE_URL = "https://pro-flow.kz";
-export const APP_URL = "https://app.pro-flow.kz";
+export const SITE_URL = "https://wereplyfirst.com";
+export const APP_URL = "https://app.wereplyfirst.com";
 export const SIGNUP_URL = `${APP_URL}/register`;
 export const CONTACT_URL = "#start";
-// Our own sales assistant, built on pro-flow itself. TODO: real @username.
-export const SALES_BOT_URL = "https://t.me/proflow_bot";
+// Our own sales assistant, built on WeReplyFirst itself. TODO: real @username.
+export const SALES_BOT_URL = "https://t.me/wereplyfirst_bot";
 
 export const PRICE = {
   monthly: 25000,
